@@ -1,6 +1,6 @@
 # IM 服务项目
 
-这是一个即时通讯（IM）服务项目，整合了 gRPC、MySQL、Redis、MongoDB 和 Kafka 等多种技术，提供用户注册、登录、通讯、添加好友等基础功能。
+这是一个使用go完成的即时通讯（IM）服务项目，整合了 gRPC、MySQL、Redis、MongoDB 和 Kafka 等多种技术，提供用户注册、登录、通讯、添加好友等基础功能。
 
 ## 项目结构
 

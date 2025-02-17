@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+// 指定生成代码的 Go 包名
+option go_package = "internal/rpc/message";
+
+package message;
+
+// 发送消息请求
+message SendMessageRequest {
+  string from = 1;
+  string to = 2;
+  string content = 3;
+}
+
+// 发送消息响应
+message SendMessageResponse {
+  bool success = 1;
+  string error_msg = 2;
+}
+
+// 获取消息历史请求
+message GetMessageHistoryRequest {
+  string from = 1;
+  string to = 2;
+  int32 limit = 3;
+}
+
+// 消息项
+message MessageItem {
+  string from = 1;
+  string to = 2;
+  string content = 3;
+  string timestamp = 4;
+}
+
+// 获取消息历史响应
+message GetMessageHistoryResponse {
+  repeated MessageItem messages = 1;
+  string error_msg = 2;
+}
+
+
+// 消息服务
+service MessageService {
+  rpc SendMessage (SendMessageRequest) returns (SendMessageResponse);
+  rpc GetMessageHistory (GetMessageHistoryRequest) returns (GetMessageHistoryResponse);
+}
+

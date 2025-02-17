@@ -1,0 +1,168 @@
+package friend
+
+import (
+	"context"
+	"fmt"
+	"go.mongodb.org/mongo-driver/bson"
+	"im-service/internal/kafka"
+	"im-service/internal/mongodb"
+	"log"
+	"time"
+)
+
+// CustomFriendServiceServer 实现 FriendService 服务
+type CustomFriendServiceServer struct {
+	kafkaProducer *kafka.KafkaProducer
+	mongoClient   *mongodb.MongoClient
+}
+
+func (s *CustomFriendServiceServer) mustEmbedUnimplementedFriendServiceServer() {
+	//TODO implement me
+	panic("implement me")
+}
+
+// NewCustomFriendServiceServer 创建好友服务端实例
+func NewCustomFriendServiceServer(kafkaProducer *kafka.KafkaProducer, mongoClient *mongodb.MongoClient) *CustomFriendServiceServer {
+	return &CustomFriendServiceServer{
+		kafkaProducer: kafkaProducer,
+		mongoClient:   mongoClient,
+	}
+}
+
+// SendFriendRequest 处理发送好友请求
+func (s *CustomFriendServiceServer) SendFriendRequest(ctx context.Context, req *FriendRequest) (*FriendRequestResponse, error) {
+	// 检查发送者和接收者是否为好友
+	isFriend, err := IsFriends(ctx, s.mongoClient, req.From, req.To)
+
+	if err != nil {
+		log.Printf("检查好友关系时出错: %v", err)
+		return &FriendRequestResponse{
+			Success:  false,
+			ErrorMsg: err.Error(),
+		}, err
+	}
+	if isFriend {
+		return &FriendRequestResponse{
+			Success:  false,
+			ErrorMsg: "发送者和接收者已经是好友，无法发送好友申请",
+		}, err
+	}
+	// 发送消息到 Kafka
+	content := "有新的好友请求"
+	command := "sendMessage"
+	kafkaMessage := fmt.Sprintf("%s|%s|%s|%s", command, req.From, req.To, content)
+	err = s.kafkaProducer.SendMessage(kafkaMessage)
+	if err != nil {
+		log.Printf("发送消息到 Kafka 失败: %v", err)
+		return &FriendRequestResponse{
+			Success:  false,
+			ErrorMsg: err.Error(),
+		}, nil
+	}
+	log.Printf("消息成功发送到 Kafka，内容: %s", kafkaMessage)
+	// 插入好友请求到 MongoDB
+	friendRequestsCollection := s.mongoClient.DB.Collection("friend_requests")
+	friendRequest := bson.M{
+		"from":      req.From,
+		"to":        req.To,
+		"status":    "pending",
+		"timestamp": time.Now(),
+	}
+	_, insertErr := friendRequestsCollection.InsertOne(ctx, friendRequest)
+	if insertErr != nil {
+		return &FriendRequestResponse{
+			Success:  false,
+			ErrorMsg: insertErr.Error(),
+		}, nil
+	}
+
+	return &FriendRequestResponse{
+		Success:  true,
+		ErrorMsg: "",
+	}, nil
+}
+
+// AcceptFriendRequest 处理同意好友请求
+func (s *CustomFriendServiceServer) AcceptFriendRequest(ctx context.Context, req *FriendRequest) (*FriendRequestResponse, error) {
+	// 更新好友请求状态为已接受
+	friendRequestsCollection := s.mongoClient.DB.Collection("friend_requests")
+	filter := bson.M{
+		"from":   req.From,
+		"to":     req.To,
+		"status": "pending",
+	}
+	update := bson.M{
+		"$set": bson.M{
+			"status":    "accepted",
+			"timestamp": time.Now(),
+		},
+	}
+	_, updateErr := friendRequestsCollection.UpdateOne(ctx, filter, update)
+	if updateErr != nil {
+		return &FriendRequestResponse{
+			Success:  false,
+			ErrorMsg: updateErr.Error(),
+		}, nil
+	}
+
+	// 插入好友关系到 MongoDB
+	friendsCollection := s.mongoClient.DB.Collection("friends")
+	friend := bson.M{
+		"user1":     req.From,
+		"user2":     req.To,
+		"timestamp": time.Now(),
+	}
+	_, insertErr := friendsCollection.InsertOne(ctx, friend)
+	if insertErr != nil {
+		return &FriendRequestResponse{
+			Success:  false,
+			ErrorMsg: insertErr.Error(),
+		}, nil
+	}
+
+	// 发送好友关系建立通知到 Kafka
+	err := s.kafkaProducer.SendFriendAcceptedNotification(req.From, req.To)
+	if err != nil {
+		return &FriendRequestResponse{
+			Success:  false,
+			ErrorMsg: err.Error(),
+		}, nil
+	}
+
+	return &FriendRequestResponse{
+		Success:  true,
+		ErrorMsg: "",
+	}, nil
+}
+
+// IsFriends  检查两个用户是否为好友
+func IsFriends(ctx context.Context, mongoClient *mongodb.MongoClient, user1, user2 string) (bool, error) {
+	log.Printf("检查发送者和接收者是否为好友")
+	// 获取好友关系集合
+	friendshipsCollection := mongoClient.DB.Collection("friend_requests")
+
+	// 构建查询条件，检查用户 1 和用户 2 之间是否存在已接受的好友关系
+	filter := bson.M{
+		"$or": []bson.M{
+			{
+				"from":   user1,
+				"to":     user2,
+				"status": "accepted",
+			},
+			{
+				"from":   user2,
+				"to":     user1,
+				"status": "accepted",
+			},
+		},
+	}
+
+	// 执行查询
+	count, err := friendshipsCollection.CountDocuments(ctx, filter)
+	if err != nil {
+		return false, err
+	}
+
+	// 如果存在已接受的好友关系，则返回 true，否则返回 false
+	return count > 0, nil
+}

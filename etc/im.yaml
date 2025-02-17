@@ -1,0 +1,24 @@
+Name: im-service
+Host: 0.0.0.0
+Port: 8080
+UserRpc:
+  Endpoints:
+    - 127.0.0.1:9000
+MessageRpc:
+  Endpoints:
+    - 127.0.0.1:9001
+FriendRpc:
+  Endpoints:
+    - 127.0.0.1:9002
+Kafka:
+  Brokers:
+    - 127.0.0.1:9092
+  Topic: im-messages
+MongoDB:
+  URI: mongodb://127.0.0.1:27017
+  Database: imdb
+MySQL:
+  DataSource: root:xkw510724@tcp(127.0.0.1:3306)/im?charset=utf8mb4&parseTime=True&loc=Local
+Redis:
+  Host: 127.0.0.1:6379
+  Pass: ""

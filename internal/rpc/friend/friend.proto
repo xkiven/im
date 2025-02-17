@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+// 指定生成代码的 Go 包名
+option go_package = "internal/rpc/friend";
+
+// 好友请求消息
+message FriendRequest {
+  string from = 1;
+  string to = 2;
+}
+
+// 好友请求响应消息
+message FriendRequestResponse {
+  bool success = 1;
+  string error_msg = 2;
+}
+
+
+// 好友请求服务
+service FriendService {
+  // 发送好友请求
+  rpc SendFriendRequest(FriendRequest) returns (FriendRequestResponse);
+  // 同意好友请求
+  rpc AcceptFriendRequest(FriendRequest) returns (FriendRequestResponse);
+}

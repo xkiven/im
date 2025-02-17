@@ -166,3 +166,57 @@ func IsFriends(ctx context.Context, mongoClient *mongodb.MongoClient, user1, use
 	// 如果存在已接受的好友关系，则返回 true，否则返回 false
 	return count > 0, nil
 }
+
+// GetFriendList 处理获取好友列表请求
+func (s *CustomFriendServiceServer) GetFriendList(ctx context.Context, req *GetFriendListRequest) (*GetFriendListResponse, error) {
+	log.Printf("准备获取好友列表")
+	// 获取好友关系集合
+	friendsCollection := s.mongoClient.DB.Collection("friends")
+
+	// 构建查询条件，查找用户的所有好友
+	filter := bson.M{
+		"$or": []bson.M{
+			{
+				"user1": req.Username,
+			},
+			{
+				"user2": req.Username,
+			},
+		},
+	}
+	log.Printf("查询用户好友")
+	// 执行查询
+	cursor, err := friendsCollection.Find(ctx, filter)
+	if err != nil {
+		log.Printf("查询好友列表时出错: %v", err)
+		return &GetFriendListResponse{
+			Success:  false,
+			ErrorMsg: err.Error(),
+		}, err
+	}
+	defer cursor.Close(ctx)
+
+	var friends []bson.M
+	if err := cursor.All(ctx, &friends); err != nil {
+		log.Printf("获取好友列表时出错: %v", err)
+		return &GetFriendListResponse{
+			Success:  false,
+			ErrorMsg: err.Error(),
+		}, err
+	}
+
+	var friendUsernames []string
+	for _, friend := range friends {
+		if friend["user1"] == req.Username {
+			friendUsernames = append(friendUsernames, friend["user2"].(string))
+		} else {
+			friendUsernames = append(friendUsernames, friend["user1"].(string))
+		}
+	}
+
+	return &GetFriendListResponse{
+		FriendUsernames: friendUsernames,
+		Success:         true,
+		ErrorMsg:        "",
+	}, nil
+}

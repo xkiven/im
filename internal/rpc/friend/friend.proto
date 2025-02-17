@@ -15,6 +15,17 @@ message FriendRequestResponse {
   string error_msg = 2;
 }
 
+// 获取好友列表请求消息
+message GetFriendListRequest {
+  string username = 1; // 用户名
+}
+
+// 获取好友列表响应消息
+message GetFriendListResponse {
+  repeated string friend_usernames = 1;
+  bool success = 2;
+  string error_msg = 3;
+}
 
 // 好友请求服务
 service FriendService {
@@ -22,4 +33,6 @@ service FriendService {
   rpc SendFriendRequest(FriendRequest) returns (FriendRequestResponse);
   // 同意好友请求
   rpc AcceptFriendRequest(FriendRequest) returns (FriendRequestResponse);
+  // 获取好友列表
+  rpc GetFriendList(GetFriendListRequest) returns (GetFriendListResponse);
 }

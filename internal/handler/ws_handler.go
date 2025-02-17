@@ -8,6 +8,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"im-service/internal/config"
 	"im-service/internal/kafka"
+	"im-service/internal/rpc/friend"
 	"im-service/internal/rpc/message"
 	"im-service/internal/rpc/user"
 	websocket2 "im-service/internal/websocket"
@@ -135,6 +136,14 @@ func WsHandler(cfg config.Config, w http.ResponseWriter, r *http.Request) {
 	defer messageConn.Close()
 	messageClient := message.NewMessageServiceClient(messageConn)
 
+	//建立与好友服务的 gRPC 连接
+	friendConn, err := createGRPCConnection(ctx, cfg.FriendRpc.Endpoints[0])
+	if err != nil {
+		log.Printf("无法连接到好友服务: %v", err)
+	}
+	defer friendConn.Close()
+	friendClient := friend.NewFriendServiceClient(friendConn)
+
 	conn, err := upGrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
@@ -201,6 +210,19 @@ func WsHandler(cfg config.Config, w http.ResponseWriter, r *http.Request) {
 					log.Printf("发送消息失败: %v", err)
 				} else {
 					log.Printf("发送消息结果\n: %v", resp)
+				}
+			}
+		case "getFriendList":
+			if len(parts) == 2 {
+				userName := parts[1]
+				req := &friend.GetFriendListRequest{
+					Username: userName,
+				}
+				resp, err := friendClient.GetFriendList(ctx, req)
+				if err != nil {
+					log.Printf("获得好友列表失败: %v", err)
+				} else {
+					log.Printf("好友列表\n: %v", resp)
 				}
 			}
 		default:

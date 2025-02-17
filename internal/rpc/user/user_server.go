@@ -83,19 +83,7 @@ func (s *CustomUserServiceServer) Login(ctx context.Context, req *UserLoginReque
 		// 记录 Redis 获取失败的错误信息
 		log.Printf("Redis 获取失败: %v", err)
 	}
-	//log.Printf("读取Redis缓存的数据: %s", cachedPassword)
-	//log.Printf("req.Password: %s", req.Password)
-	//log.Printf("cachedPassword 长度: %d", len(cachedPassword))
-	//log.Printf("req.Password 长度: %d", len(req.Password))
-	//for i, c := range cachedPassword {
-	//	log.Printf("cachedPassword 字符 %d: %c (%U)", i, c, c)
-	//}
-	//for i, c := range req.Password {
-	//	log.Printf("req.Password 字符 %d: %c (%U)", i, c, c)
-	//}
-	//if cachedPassword != req.Password {
-	//	log.Printf("req.Password!=cachedPassword")
-	//}
+
 	if err == nil && cachedPassword == req.Password {
 		log.Printf("生成JWT")
 		// 生成JWT

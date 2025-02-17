@@ -5,6 +5,7 @@ import (
 	"im-service/internal/config"
 	"im-service/internal/handler"
 	"im-service/internal/kafka"
+	"im-service/internal/loadmonitor"
 	"im-service/internal/mongodb"
 	"im-service/internal/mysql"
 	"im-service/internal/redis"
@@ -16,6 +17,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 func main() {
@@ -61,14 +63,26 @@ func main() {
 		log.Println("FriendRpc端点列表为空。跳过好友服务启动")
 	}
 
+	// 初始化负载监控系统
+	lm := loadmonitor.NewLoadMonitor("http://localhost:8081/report_load")
+	// 实际的服务实例端点
+	endpoints := []string{"127.0.0.1:9000", "127.0.0.1:9001", "127.0.0.1:9002"}
+	// 上报间隔
+	interval := 5 * time.Second
+
+	lm.Start(endpoints, interval)
+
 	// 启动 WebSocket 服务
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-		handler.WsHandler(cfg, w, r)
+		handler.WsHandler(cfg, lm, w, r)
 	})
 	log.Printf("启动WebSocket服务器，在端口 %d 上", cfg.Port)
 	if err := http.ListenAndServe(":"+strconv.Itoa(cfg.Port), nil); err != nil {
 		log.Fatalf("启动WebSocket服务器失败: %v", err)
 	}
+
+	// 启动 HTTP 服务器
+	log.Fatal(http.ListenAndServe(":8080", nil))
 
 }
 

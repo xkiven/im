@@ -8,11 +8,13 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"im-service/internal/config"
 	"im-service/internal/kafka"
+	"im-service/internal/loadmonitor"
 	"im-service/internal/rpc/friend"
 	"im-service/internal/rpc/message"
 	"im-service/internal/rpc/user"
 	websocket2 "im-service/internal/websocket"
 	"log"
+	"math/rand"
 	"net"
 	"net/http"
 	"strings"
@@ -29,7 +31,14 @@ var upGrader = websocket.Upgrader{
 }
 
 // createGRPCConnection 创建 gRPC 连接
-func createGRPCConnection(ctx context.Context, target string) (*grpc.ClientConn, error) {
+func createGRPCConnection(ctx context.Context, endpoints []string, lm *loadmonitor.LoadMonitor) (*grpc.ClientConn, error) {
+	// 使用P2C算法选择服务实例
+
+	target, err := pickServerWithP2C(endpoints, lm)
+	if err != nil {
+		return nil, err
+	}
+
 	// 创建拨号选项
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -45,6 +54,37 @@ func createGRPCConnection(ctx context.Context, target string) (*grpc.ClientConn,
 		return nil, err
 	}
 	return conn, nil
+}
+
+// pickServerWithP2C 使用P2C算法选择服务实例
+func pickServerWithP2C(endpoints []string, lm *loadmonitor.LoadMonitor) (string, error) {
+	log.Printf("使用P2C算法选择服务实例")
+	if len(endpoints) == 0 {
+		return "", fmt.Errorf("no endpoints available")
+	}
+	if len(endpoints) == 1 {
+		return endpoints[0], nil
+	}
+
+	// 随机选择两个不同的服务实例
+	log.Printf("随机选择两个不同的服务实例")
+	index1, index2 := rand.Intn(len(endpoints)), rand.Intn(len(endpoints))
+	for index2 == index1 {
+		index2 = rand.Intn(len(endpoints))
+	}
+
+	endpoint1, endpoint2 := endpoints[index1], endpoints[index2]
+
+	// 获取负载信息
+	load1, load2 := lm.GetLoad(endpoint1), lm.GetLoad(endpoint2)
+
+	log.Printf("Endpoint1: %s, Load1: %d, Endpoint2: %s, Load2: %d", endpoint1, load1, endpoint2, load2)
+
+	// 选择负载较低的服务实例
+	if load1 <= load2 {
+		return endpoint1, nil
+	}
+	return endpoint2, nil
 }
 
 // handleUserRegister 处理用户注册请求
@@ -115,13 +155,13 @@ func handleSendMessage(ctx context.Context, client message.MessageServiceClient,
 }
 
 // WsHandler 处理 WebSocket 连接
-func WsHandler(cfg config.Config, w http.ResponseWriter, r *http.Request) {
+func WsHandler(cfg config.Config, lm *loadmonitor.LoadMonitor, w http.ResponseWriter, r *http.Request) {
 	// 创建一个带有超时的上下文，用于 gRPC 连接
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	// 建立与用户服务的 gRPC 连接
-	userConn, err := createGRPCConnection(ctx, cfg.UserRpc.Endpoints[0])
+	userConn, err := createGRPCConnection(ctx, cfg.UserRpc.Endpoints, lm)
 	if err != nil {
 		log.Fatalf("无法连接到用户服务: %v", err)
 	}
@@ -129,7 +169,7 @@ func WsHandler(cfg config.Config, w http.ResponseWriter, r *http.Request) {
 	userClient := user.NewUserServiceClient(userConn)
 
 	// 建立与消息服务的 gRPC 连接
-	messageConn, err := createGRPCConnection(ctx, cfg.MessageRpc.Endpoints[0])
+	messageConn, err := createGRPCConnection(ctx, cfg.MessageRpc.Endpoints, lm)
 	if err != nil {
 		log.Fatalf("无法连接到消息服务: %v", err)
 	}
@@ -137,7 +177,7 @@ func WsHandler(cfg config.Config, w http.ResponseWriter, r *http.Request) {
 	messageClient := message.NewMessageServiceClient(messageConn)
 
 	//建立与好友服务的 gRPC 连接
-	friendConn, err := createGRPCConnection(ctx, cfg.FriendRpc.Endpoints[0])
+	friendConn, err := createGRPCConnection(ctx, cfg.FriendRpc.Endpoints, lm)
 	if err != nil {
 		log.Printf("无法连接到好友服务: %v", err)
 	}

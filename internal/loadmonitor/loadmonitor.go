@@ -33,7 +33,7 @@ func (lm *LoadMonitor) Start(endpoints []string, interval time.Duration) {
 		log.Fatal(http.ListenAndServe(":8081", nil))
 	}()
 
-	// 模拟服务实例定期上报负载信息
+	// 服务实例定期上报负载信息
 	go lm.realLoadReporting(endpoints, interval)
 }
 
@@ -83,6 +83,7 @@ func getActualLoad(endpoint string) int {
 
 // reportLoad 上报负载信息
 func (lm *LoadMonitor) reportLoad(endpoint string, load int) {
+	log.Printf("开始上报端点 %s 的负载信息，负载值为: %d", endpoint, load)
 	report := struct {
 		Endpoint string `json:"endpoint"`
 		Load     int    `json:"load"`
@@ -93,18 +94,20 @@ func (lm *LoadMonitor) reportLoad(endpoint string, load int) {
 	client := &http.Client{}
 	body, err := json.Marshal(report)
 	if err != nil {
-		log.Printf("Error marshaling load report: %v", err)
+		log.Printf("负载信息序列化失败: %v", err)
 		return
 	}
+	log.Printf("负载信息序列化成功: %s", string(body))
 	req, err := http.NewRequest("POST", lm.reportURL, bytes.NewBuffer(body))
 	if err != nil {
-		log.Printf("Error creating request: %v", err)
+		log.Printf("创建请求时出错: %v", err)
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
+	//log.Printf("请求创建成功: %v", req)
 	_, err = client.Do(req)
 	if err != nil {
-		log.Printf("Error sending load report: %v", err)
+		log.Printf("发送负载报告时出错: %v", err)
 		return
 	}
 }

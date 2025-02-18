@@ -97,7 +97,7 @@ func (lm *LoadMonitor) reportLoad(endpoint string, load int) {
 		log.Printf("负载信息序列化失败: %v", err)
 		return
 	}
-	log.Printf("负载信息序列化成功: %s", string(body))
+	//log.Printf("负载信息序列化成功: %s", string(body))
 	req, err := http.NewRequest("POST", lm.reportURL, bytes.NewBuffer(body))
 	if err != nil {
 		log.Printf("创建请求时出错: %v", err)

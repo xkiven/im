@@ -1,11 +1,11 @@
 package svc
 
 import (
-	"im-service/internal/config"
-	"im-service/internal/kafka"
-	"im-service/internal/mongodb"
-	"im-service/internal/mysql"
-	"im-service/internal/redis"
+	"im-service/config"
+	"im-service/internal/data/kafka"
+	"im-service/internal/data/mongodb"
+	"im-service/internal/data/mysql"
+	"im-service/internal/data/redis"
 )
 
 // ServiceContext 定义服务上下文结构体

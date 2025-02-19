@@ -5,8 +5,8 @@ import (
 	"errors"
 	"github.com/golang-jwt/jwt/v4"
 	"gorm.io/gorm"
-	"im-service/internal/mysql"
-	"im-service/internal/redis"
+	"im-service/internal/data/mysql"
+	"im-service/internal/data/redis"
 	"log"
 	"time"
 )

@@ -49,7 +49,7 @@ func LoadConfig(filePath string, cfg *Config) error {
 		var yamlMap map[string]interface{}
 		err = yaml.Unmarshal(data, &yamlMap)
 		if err != nil {
-			return fmt.Errorf("failed to re - unmarshal config file: %w", err)
+			return fmt.Errorf("无法重新解组配置文件: %w", err)
 		}
 		if userRpc, ok := yamlMap["UserRpc"].(map[string]interface{}); ok {
 			if endpoints, ok := userRpc["Endpoints"].([]interface{}); ok {
@@ -66,7 +66,7 @@ func LoadConfig(filePath string, cfg *Config) error {
 		var yamlMap map[string]interface{}
 		err = yaml.Unmarshal(data, &yamlMap)
 		if err != nil {
-			return fmt.Errorf("failed to re - unmarshal config file: %w", err)
+			return fmt.Errorf("无法重新解组配置文件: %w", err)
 		}
 		if messageRpc, ok := yamlMap["MessageRpc"].(map[string]interface{}); ok {
 			if endpoints, ok := messageRpc["Endpoints"].([]interface{}); ok {
@@ -83,7 +83,7 @@ func LoadConfig(filePath string, cfg *Config) error {
 		var yamlMap map[string]interface{}
 		err = yaml.Unmarshal(data, &yamlMap)
 		if err != nil {
-			return fmt.Errorf("failed to re - unmarshal config file: %w", err)
+			return fmt.Errorf("无法重新解组配置文件: %w", err)
 		}
 		if FriendRpc, ok := yamlMap["FriendRpc"].(map[string]interface{}); ok {
 			if endpoints, ok := FriendRpc["Endpoints"].([]interface{}); ok {

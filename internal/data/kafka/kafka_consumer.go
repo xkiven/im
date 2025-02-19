@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/segmentio/kafka-go"
-	"im-service/internal/websocket"
+	"im-service/internal/websocket/notify"
 	"log"
 	"time"
 )
@@ -83,7 +83,7 @@ func HandleKafkaMessage(message string) error {
 		// 好友关系建立，通知相关用户
 		from := parts[1]
 		to := parts[2]
-		websocket.NotifyFriendAccepted(from, to)
+		notify.NotifyFriendAccepted(from, to)
 	case "sendMessage":
 		// 新消息，通知相关用户
 		log.Printf("新消息，通知相关用户")
@@ -91,7 +91,7 @@ func HandleKafkaMessage(message string) error {
 		to := parts[2]
 		content := parts[3]
 		message := fmt.Sprintf("%s|%s|%s", from, to, content)
-		websocket.NotifyNewMessage(message)
+		notify.NotifyNewMessage(message)
 	default:
 		err := MyCustomError{ErrMsg: "未知Kafka消息类型"}
 		fmt.Printf("未知Kafka消息类型: %s\n", parts[0])

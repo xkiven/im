@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"go.mongodb.org/mongo-driver/bson"
-	"im-service/internal/kafka"
-	"im-service/internal/mongodb"
+	"im-service/internal/data/kafka"
+	"im-service/internal/data/mongodb"
 	"log"
 	"time"
 )
@@ -14,11 +14,6 @@ import (
 type CustomFriendServiceServer struct {
 	kafkaProducer *kafka.KafkaProducer
 	mongoClient   *mongodb.MongoClient
-}
-
-func (s *CustomFriendServiceServer) mustEmbedUnimplementedFriendServiceServer() {
-	//TODO implement me
-	panic("implement me")
 }
 
 // NewCustomFriendServiceServer 创建好友服务端实例

@@ -2,16 +2,16 @@ package main
 
 import (
 	"google.golang.org/grpc"
-	"im-service/internal/config"
-	"im-service/internal/handler"
-	"im-service/internal/kafka"
+	"im-service/config"
+	"im-service/internal/data/kafka"
+	"im-service/internal/data/mongodb"
+	"im-service/internal/data/mysql"
+	"im-service/internal/data/redis"
 	"im-service/internal/loadmonitor"
-	"im-service/internal/mongodb"
-	"im-service/internal/mysql"
-	"im-service/internal/redis"
 	"im-service/internal/rpc/friend"
 	"im-service/internal/rpc/message"
 	"im-service/internal/rpc/user"
+	"im-service/internal/start"
 	"im-service/internal/svc"
 	"log"
 	"net"
@@ -21,6 +21,7 @@ import (
 )
 
 func main() {
+	//加载配置文件
 	var cfg config.Config
 	err := config.LoadConfig("etc/im.yaml", &cfg)
 	if err != nil {
@@ -74,7 +75,7 @@ func main() {
 
 	// 启动 WebSocket 服务
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-		handler.WsHandler(cfg, lm, w, r)
+		start.WsHandler(cfg, lm, w, r)
 	})
 	log.Printf("启动WebSocket服务器，在端口 %d 上", cfg.Port)
 	if err := http.ListenAndServe(":"+strconv.Itoa(cfg.Port), nil); err != nil {

@@ -82,7 +82,7 @@ func ReadClientMessages(ctx context.Context, conn *websocket.Conn, userClient us
 				req := &friend.GetFriendListRequest{
 					Username: userName,
 				}
-				resp, err := friendClient.GetFriendList(ctx, req)
+				resp, err := GetFriendListHandler(ctx, friendClient, req)
 				if err != nil {
 					log.Printf("获得好友列表失败: %v", err)
 				} else {

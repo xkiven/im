@@ -16,6 +16,11 @@ type CustomFriendServiceServer struct {
 	mongoClient   *mongodb.MongoClient
 }
 
+func (s *CustomFriendServiceServer) mustEmbedUnimplementedFriendServiceServer() {
+	//TODO implement me
+	panic("implement me")
+}
+
 // NewCustomFriendServiceServer 创建好友服务端实例
 func NewCustomFriendServiceServer(kafkaProducer *kafka.KafkaProducer, mongoClient *mongodb.MongoClient) *CustomFriendServiceServer {
 	return &CustomFriendServiceServer{

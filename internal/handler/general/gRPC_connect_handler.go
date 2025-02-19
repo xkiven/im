@@ -1,10 +1,9 @@
-package handler
+package general
 
 import (
 	"context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"im-service/internal/handler/general"
 	"im-service/internal/loadmonitor"
 	"net"
 )
@@ -13,7 +12,7 @@ import (
 func CreateGRPCConnection(endpoints []string, lm *loadmonitor.LoadMonitor) (*grpc.ClientConn, error) {
 	// 使用P2C算法选择服务实例
 
-	target, err := general.PickServerWithP2C(endpoints, lm)
+	target, err := PickServerWithP2C(endpoints, lm)
 	if err != nil {
 		return nil, err
 	}

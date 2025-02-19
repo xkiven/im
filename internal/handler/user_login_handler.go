@@ -14,7 +14,9 @@ import (
 func HandleUserLogin(ctx context.Context, client user.UserServiceClient, req *user.UserLoginRequest, conn *websocket.Conn) (*user.UserLoginResponse, error) {
 	// 检查上下文是否已经超时
 	if ctx.Err() != nil {
+		log.Printf("上下文已取消: %v", ctx.Err())
 		return nil, ctx.Err()
+
 	}
 
 	resp, err := client.Login(ctx, req)

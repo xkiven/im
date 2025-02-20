@@ -2,10 +2,12 @@ package friend
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"go.mongodb.org/mongo-driver/bson"
 	"im-service/internal/data/kafka"
 	"im-service/internal/data/mongodb"
+	"im-service/internal/svc"
 	"log"
 	"time"
 )
@@ -31,6 +33,21 @@ func NewCustomFriendServiceServer(kafkaProducer *kafka.KafkaProducer, mongoClien
 
 // SendFriendRequest 处理发送好友请求
 func (s *CustomFriendServiceServer) SendFriendRequest(ctx context.Context, req *FriendRequest) (*FriendRequestResponse, error) {
+	// 获取 ServiceContext
+	serviceContext, ok := ctx.Value("serviceContext").(*svc.ServiceContext)
+	if !ok {
+		return nil, errors.New("无法获取 ServiceContext")
+	}
+
+	// 从 ServiceContext 中获取用户名
+	username := serviceContext.GetUsername()
+	if username != req.From {
+		return &FriendRequestResponse{
+			Success:  false,
+			ErrorMsg: "你不是此用户",
+		}, errors.New("发送者不是此用户")
+	}
+
 	// 检查发送者和接收者是否为好友
 	isFriend, err := IsFriends(ctx, s.mongoClient, req.From, req.To)
 
@@ -84,6 +101,21 @@ func (s *CustomFriendServiceServer) SendFriendRequest(ctx context.Context, req *
 
 // AcceptFriendRequest 处理同意好友请求
 func (s *CustomFriendServiceServer) AcceptFriendRequest(ctx context.Context, req *FriendRequest) (*FriendRequestResponse, error) {
+	// 获取 ServiceContext
+	serviceContext, ok := ctx.Value("serviceContext").(*svc.ServiceContext)
+	if !ok {
+		return nil, errors.New("无法获取 ServiceContext")
+	}
+
+	// 从 ServiceContext 中获取用户名
+	username := serviceContext.GetUsername()
+	if username != req.To {
+		return &FriendRequestResponse{
+			Success:  false,
+			ErrorMsg: "你不是此用户",
+		}, errors.New("同意者不是此用户")
+	}
+
 	// 更新好友请求状态为已接受
 	friendRequestsCollection := s.mongoClient.DB.Collection("friend_requests")
 	filter := bson.M{
@@ -169,6 +201,21 @@ func IsFriends(ctx context.Context, mongoClient *mongodb.MongoClient, user1, use
 
 // GetFriendList 处理获取好友列表请求
 func (s *CustomFriendServiceServer) GetFriendList(ctx context.Context, req *GetFriendListRequest) (*GetFriendListResponse, error) {
+	// 获取 ServiceContext
+	serviceContext, ok := ctx.Value("serviceContext").(*svc.ServiceContext)
+	if !ok {
+		return nil, errors.New("无法获取 ServiceContext")
+	}
+
+	// 从 ServiceContext 中获取用户名
+	username := serviceContext.GetUsername()
+	if username != req.Username {
+		return &GetFriendListResponse{
+			Success:  false,
+			ErrorMsg: "你不是此用户",
+		}, errors.New("申请获取列表者不是此用户")
+	}
+
 	log.Printf("准备获取好友列表")
 	// 获取好友关系集合
 	friendsCollection := s.mongoClient.DB.Collection("friends")

@@ -8,6 +8,7 @@ import (
 	"im-service/internal/data/mysql"
 	"im-service/internal/data/redis"
 	"im-service/internal/loadmonitor"
+	"im-service/internal/middleware"
 	"im-service/internal/rpc/friend"
 	"im-service/internal/rpc/message"
 	"im-service/internal/rpc/user"
@@ -108,7 +109,10 @@ func startMessageService(endpoint string, sc *svc.ServiceContext) {
 	if err != nil {
 		log.Fatalf("收听失败: %v", err)
 	}
-	s := grpc.NewServer()
+	// 创建 gRPC 服务器并注册拦截器
+	s := grpc.NewServer(
+		grpc.UnaryInterceptor(middleware.AuthUnaryServerInterceptor),
+	)
 	messageServer := message.NewCustomMessageServiceServer(sc.KafkaProducer, sc.MongoClient)
 	message.RegisterMessageServiceServer(s, messageServer)
 	log.Printf("正在启动消息服务 %s", endpoint)
@@ -123,7 +127,10 @@ func startFriendService(endpoint string, sc *svc.ServiceContext) {
 	if err != nil {
 		log.Fatalf("收听失败: %v", err)
 	}
-	s := grpc.NewServer()
+	// 创建 gRPC 服务器并注册拦截器
+	s := grpc.NewServer(
+		grpc.UnaryInterceptor(middleware.AuthUnaryServerInterceptor),
+	)
 	friendServer := friend.NewCustomFriendServiceServer(sc.KafkaProducer, sc.MongoClient)
 	friend.RegisterFriendServiceServer(s, friendServer)
 	log.Printf("正在启动好友服务 %s", endpoint)

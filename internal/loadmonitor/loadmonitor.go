@@ -83,7 +83,7 @@ func getActualLoad(endpoint string) int {
 
 // reportLoad 上报负载信息
 func (lm *LoadMonitor) reportLoad(endpoint string, load int) {
-	log.Printf("开始上报端点 %s 的负载信息，负载值为: %d", endpoint, load)
+	//log.Printf("开始上报端点 %s 的负载信息，负载值为: %d", endpoint, load)
 	report := struct {
 		Endpoint string `json:"endpoint"`
 		Load     int    `json:"load"`

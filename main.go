@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"im-service/config"
 	"im-service/internal/data/kafka"
@@ -14,6 +16,7 @@ import (
 	"im-service/internal/rpc/user"
 	"im-service/internal/start"
 	"im-service/internal/svc"
+	"im-service/track"
 	"log"
 	"net"
 	"net/http"
@@ -22,9 +25,16 @@ import (
 )
 
 func main() {
+	// 初始化 Jaeger 追踪器
+	tp, err := track.InitTracer()
+	if err != nil {
+		log.Fatalf("Failed to initialize tracer: %v", err)
+	}
+	defer tp.Shutdown(context.Background())
+
 	//加载配置文件
 	var cfg config.Config
-	err := config.LoadConfig("etc/im.yaml", &cfg)
+	err = config.LoadConfig("etc/im.yaml", &cfg)
 	if err != nil {
 		log.Fatalf("加载配置文件失败: %v", err)
 	}
@@ -97,7 +107,9 @@ func startUserService(endpoint string, sc *svc.ServiceContext) {
 	if err != nil {
 		log.Fatalf("收听失败: %v", err)
 	}
-	s := grpc.NewServer()
+	s := grpc.NewServer(
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
+	)
 	userServer := user.NewCustomUserServiceServer(sc.MySQLClient, sc.RedisClient)
 	user.RegisterUserServiceServer(s, userServer)
 	log.Printf("正在启动用户服务 %s", endpoint)
@@ -114,6 +126,7 @@ func startMessageService(endpoint string, sc *svc.ServiceContext) {
 	}
 	//创建 gRPC 服务器并注册拦截器
 	s := grpc.NewServer(
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 		grpc.UnaryInterceptor(middleware.AuthMiddleware),
 	)
 	messageServer := message.NewCustomMessageServiceServer(sc.KafkaProducer, sc.MongoClient)
@@ -132,6 +145,7 @@ func startFriendService(endpoint string, sc *svc.ServiceContext) {
 	}
 	// 创建 gRPC 服务器并注册拦截器
 	s := grpc.NewServer(
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 		grpc.UnaryInterceptor(middleware.AuthMiddleware),
 	)
 	friendServer := friend.NewCustomFriendServiceServer(sc.KafkaProducer, sc.MongoClient, sc.RedisClient)

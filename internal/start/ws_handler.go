@@ -3,6 +3,7 @@ package start
 import (
 	"context"
 	"github.com/gorilla/websocket"
+	"google.golang.org/grpc/metadata"
 	"im-service/config"
 	general2 "im-service/internal/general"
 	"im-service/internal/handler"
@@ -25,8 +26,18 @@ var UpGrader = websocket.Upgrader{
 
 // WsHandler 处理 WebSocket 连接
 func WsHandler(cfg config.Config, lm *loadmonitor.LoadMonitor, w http.ResponseWriter, r *http.Request) {
-	// 创建一个无超时的上下文
-	ctx := context.Background()
+	// 从请求头中获取 token
+	token := r.Header.Get("Authorization")
+	if token == "" {
+		http.Error(w, "缺少 Authorization 头", http.StatusUnauthorized)
+		return
+	}
+
+	// 将 token 添加到 gRPC 上下文中
+	md := metadata.New(map[string]string{"authorization": token})
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	//// 创建一个无超时的上下文
+	//ctx := context.Background()
 
 	// 建立与用户服务的 gRPC 连接
 	userConn, err := general2.CreateGRPCConnection(cfg.UserRpc.Endpoints, lm)

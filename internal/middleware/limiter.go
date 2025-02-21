@@ -2,9 +2,11 @@ package middleware
 
 import (
 	"context"
+	"errors"
+	redis2 "github.com/go-redis/redis/v8"
 	"im-service/internal/data/redis"
+	"log"
 	"net/http"
-
 	"strconv"
 	"time"
 )
@@ -20,20 +22,33 @@ type RateLimiter struct {
 
 // NewRateLimiter 创建一个新的分布式限流器
 func NewRateLimiter(client *redis.RedisClient, rate, capacity int) *RateLimiter {
-	return &RateLimiter{
+	//log.Printf("初始化令牌桶")
+	limiter := &RateLimiter{
 		client:   client,
 		rate:     rate,
 		capacity: capacity,
 	}
+	// 初始化令牌桶信息
+	ctx := context.Background()
+	key := "global_rate_limit"
+	now := time.Now().Unix()
+	err := client.Client.HSet(ctx, key, "tokens", capacity).Err()
+	if err != nil {
+		log.Printf("初始化令牌桶信息失败: %v", err)
+	}
+	err = client.Client.HSet(ctx, key, "last_refill", now).Err()
+	if err != nil {
+		log.Printf("初始化令牌桶信息失败: %v", err)
+	}
+
+	return limiter
 }
 
 // RateLimitMiddleware 限流器中间件
 func RateLimitMiddleware(limiter *RateLimiter, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// 获取客户端 IP 作为限流 key
-		clientIP := r.RemoteAddr
-		key := "rate_limit:ws_ip_" + clientIP
-
+		// 固定的限流key，表示全局令牌桶
+		key := "global_rate_limit"
 		// 调用 RateLimiter 的 Allow 方法判断是否允许请求通过
 		allowed, err := limiter.Allow(r.Context(), key)
 		if err != nil {
@@ -50,14 +65,11 @@ func RateLimitMiddleware(limiter *RateLimiter, next http.HandlerFunc) http.Handl
 	}
 }
 
-// getClientIP 从上下文中获取客户端 IP
-func getClientIP(ctx context.Context) string {
-	// 简单返回一个默认值，实际中需要从上下文或者请求中获取真实的客户端 IP
-	return "127.0.0.1"
-}
-
-// Allow 判断是否允许请求通过
 func (l *RateLimiter) Allow(ctx context.Context, key string) (bool, error) {
+	if ctx.Err() != nil {
+		log.Printf("上下文已经取消或超时: %v", ctx.Err())
+		return false, ctx.Err()
+	}
 	// 获取当前时间戳
 	now := time.Now().Unix()
 
@@ -66,30 +78,42 @@ func (l *RateLimiter) Allow(ctx context.Context, key string) (bool, error) {
 	defer tx.Close()
 
 	// 从 Redis 中获取令牌桶的信息
-	resp, err := tx.HGetAll(ctx, key).Result()
+	//log.Printf("开始获取令牌桶信息，key: %s", key)
+	resp, err := l.client.Client.HGetAll(ctx, key).Result()
 	if err != nil {
-		return false, err
+		if errors.Is(err, redis2.Nil) {
+			log.Printf("令牌桶信息不存在，初始化令牌桶")
+			// 令牌桶信息不存在，初始化令牌桶
+			tokens := l.capacity
+			lastRefill := now
+			// 保存初始化信息到 Redis
+			err := l.client.Client.HSet(ctx, key, "tokens", tokens, "last_refill", lastRefill).Err()
+			if err != nil {
+				log.Printf("保存令牌桶信息失败: %v", err)
+				return false, err
+			}
+			resp = map[string]string{
+				"tokens":      strconv.Itoa(tokens),
+				"last_refill": strconv.FormatInt(lastRefill, 10),
+			}
+		} else {
+			log.Printf("获取令牌桶信息失败: %v", err)
+			return false, err
+		}
 	}
-
 	var tokens int
 	var lastRefill int64
 
-	// 如果令牌桶信息不存在，初始化令牌桶
-	if len(resp) == 0 {
-		tokens = l.capacity
-		lastRefill = now
-	} else {
-		// 解析令牌桶信息
-		tokens, _ = strconv.Atoi(resp["tokens"])
-		lastRefill, _ = strconv.ParseInt(resp["last_refill"], 10, 64)
+	// 解析令牌桶信息
+	tokens, _ = strconv.Atoi(resp["tokens"])
+	lastRefill, _ = strconv.ParseInt(resp["last_refill"], 10, 64)
 
-		// 计算需要补充的令牌数
-		elapsed := now - lastRefill
-		newTokens := int(elapsed) * l.rate
-		tokens = tokens + newTokens
-		if tokens > l.capacity {
-			tokens = l.capacity
-		}
+	// 计算需要补充的令牌数
+	elapsed := now - lastRefill
+	newTokens := int(elapsed) * l.rate
+	tokens = tokens + newTokens
+	if tokens > l.capacity {
+		tokens = l.capacity
 	}
 
 	// 判断是否有足够的令牌
@@ -100,21 +124,14 @@ func (l *RateLimiter) Allow(ctx context.Context, key string) (bool, error) {
 	// 消耗一个令牌
 	tokens--
 
-	// 更新令牌桶信息
-	_, err = tx.HSet(ctx, key, "tokens", tokens).Result()
-	if err != nil {
-		tx.Discard()
-		return false, err
-	}
-	_, err = tx.HSet(ctx, key, "last_refill", now).Result()
-	if err != nil {
-		tx.Discard()
-		return false, err
-	}
+	// 开始事务操作
+	tx.HSet(ctx, key, "tokens", tokens)
+	tx.HSet(ctx, key, "last_refill", now)
 
 	// 执行 Redis 事务
 	_, err = tx.Exec(ctx)
 	if err != nil {
+		log.Printf("事务执行失败: %v", err)
 		return false, err
 	}
 

@@ -16,7 +16,7 @@ const forcedSelectionInterval = 10 * time.Minute
 
 // PickServerWithP2C  使用P2C算法选择服务实例
 func PickServerWithP2C(endpoints []string, lm *loadmonitor.LoadMonitor) (string, error) {
-	log.Printf("使用P2C算法选择服务实例")
+	//log.Printf("使用P2C算法选择服务实例")
 	if len(endpoints) == 0 {
 		return "", fmt.Errorf("没有可用的端点")
 	}
@@ -27,7 +27,9 @@ func PickServerWithP2C(endpoints []string, lm *loadmonitor.LoadMonitor) (string,
 	// 检查是否需要强制选择
 	if time.Since(lastForcedSelectionTime) >= forcedSelectionInterval {
 		log.Printf("超过一定时间，进行强制选择")
-		return pickLowestLoadServer(endpoints, lm), nil
+		endpoint := pickLowestLoadServer(endpoints, lm)
+		log.Printf("使用的Endpoint:%s", endpoint)
+		return endpoint, nil
 	}
 
 	// 随机选择两个不同的服务实例
@@ -42,12 +44,14 @@ func PickServerWithP2C(endpoints []string, lm *loadmonitor.LoadMonitor) (string,
 	// 获取负载信息
 	load1, load2 := lm.GetLoad(endpoint1), lm.GetLoad(endpoint2)
 
-	log.Printf("Endpoint1: %s, Load1: %d, Endpoint2: %s, Load2: %d", endpoint1, load1, endpoint2, load2)
+	//log.Printf("Endpoint1: %s, Load1: %d, Endpoint2: %s, Load2: %d", endpoint1, load1, endpoint2, load2)
 
 	// 选择负载较低的服务实例
 	if load1 <= load2 {
+		log.Printf("使用的Endpoint:%s", endpoint1)
 		return endpoint1, nil
 	}
+	log.Printf("使用的Endpoint:%s", endpoint2)
 	return endpoint2, nil
 }
 

@@ -54,24 +54,28 @@ func main() {
 
 	// 创建服务上下文
 	sc := svc.NewServiceContext(mysqlClient, redisClient, mongoClient, kafkaProducer, kafkaConsumer)
+
 	// 启动用户服务 gRPC 服务器
-	if len(cfg.UserRpc.Endpoints) > 0 {
-		go startUserService(cfg.UserRpc.Endpoints[0], sc)
-	} else {
+	for _, endpoint := range cfg.UserRpc.Endpoints {
+		go startUserService(endpoint, sc)
+	}
+	if len(cfg.UserRpc.Endpoints) == 0 {
 		log.Println("UserRpc端点列表为空。跳过用户服务启动")
 	}
 
 	// 启动消息服务 gRPC 服务器
-	if len(cfg.MessageRpc.Endpoints) > 0 {
-		go startMessageService(cfg.MessageRpc.Endpoints[0], sc)
-	} else {
+	for _, endpoint := range cfg.MessageRpc.Endpoints {
+		go startMessageService(endpoint, sc)
+	}
+	if len(cfg.MessageRpc.Endpoints) == 0 {
 		log.Println("MessageRpc端点列表为空。跳过消息服务启动")
 	}
 
 	//启动好友服务 gRPC 服务器
-	if len(cfg.FriendRpc.Endpoints) > 0 {
-		go startFriendService(cfg.FriendRpc.Endpoints[0], sc)
-	} else {
+	for _, endpoint := range cfg.FriendRpc.Endpoints {
+		go startFriendService(endpoint, sc)
+	}
+	if len(cfg.FriendRpc.Endpoints) == 0 {
 		log.Println("FriendRpc端点列表为空。跳过好友服务启动")
 	}
 

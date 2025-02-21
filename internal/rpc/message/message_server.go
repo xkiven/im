@@ -18,13 +18,15 @@ type CustomMessageServiceServer struct {
 	UnimplementedMessageServiceServer
 	kafkaProducer *kafka.KafkaProducer
 	mongoClient   *mongodb.MongoClient // 修改为新的类型
+	kafkaConsumer *kafka.KafkaConsumer
 }
 
 // NewCustomMessageServiceServer 创建消息服务端实例
-func NewCustomMessageServiceServer(kafkaProducer *kafka.KafkaProducer, mongoClient *mongodb.MongoClient) *CustomMessageServiceServer {
+func NewCustomMessageServiceServer(kafkaProducer *kafka.KafkaProducer, mongoClient *mongodb.MongoClient, kafkaConsumer *kafka.KafkaConsumer) *CustomMessageServiceServer {
 	return &CustomMessageServiceServer{
 		kafkaProducer: kafkaProducer,
 		mongoClient:   mongoClient,
+		kafkaConsumer: kafkaConsumer,
 	}
 }
 
@@ -69,6 +71,13 @@ func (s *CustomMessageServiceServer) SendMessage(ctx context.Context, req *SendM
 		}, nil
 	}
 	log.Printf("消息成功发送到 Kafka，内容: %s", kafkaMessage)
+	go func() {
+		err := s.kafkaConsumer.ConsumeMessages()
+		if err != nil {
+			log.Printf("Kafka 消费者出现错误")
+			log.Println(err)
+		}
+	}()
 	// 插入消息到 MongoDB
 	messagesCollection := s.mongoClient.DB.Collection("messages")
 	message := bson.M{

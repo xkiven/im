@@ -17,6 +17,7 @@ type CustomFriendServiceServer struct {
 	kafkaProducer *kafka.KafkaProducer
 	mongoClient   *mongodb.MongoClient
 	redisClient   *redis.RedisClient
+	kafkaConsumer *kafka.KafkaConsumer
 }
 
 func (s *CustomFriendServiceServer) mustEmbedUnimplementedFriendServiceServer() {
@@ -25,11 +26,12 @@ func (s *CustomFriendServiceServer) mustEmbedUnimplementedFriendServiceServer() 
 }
 
 // NewCustomFriendServiceServer 创建好友服务端实例
-func NewCustomFriendServiceServer(kafkaProducer *kafka.KafkaProducer, mongoClient *mongodb.MongoClient, redisClient *redis.RedisClient) *CustomFriendServiceServer {
+func NewCustomFriendServiceServer(kafkaProducer *kafka.KafkaProducer, mongoClient *mongodb.MongoClient, redisClient *redis.RedisClient, kafkaConsumer *kafka.KafkaConsumer) *CustomFriendServiceServer {
 	return &CustomFriendServiceServer{
 		kafkaProducer: kafkaProducer,
 		mongoClient:   mongoClient,
 		redisClient:   redisClient,
+		kafkaConsumer: kafkaConsumer,
 	}
 }
 
@@ -197,6 +199,14 @@ func (s *CustomFriendServiceServer) AcceptFriendRequest(ctx context.Context, req
 			ErrorMsg: err.Error(),
 		}, nil
 	}
+
+	go func() {
+		err := s.kafkaConsumer.ConsumeMessages()
+		if err != nil {
+			log.Printf("Kafka 消费者出现错误")
+			log.Println(err)
+		}
+	}()
 
 	return &FriendRequestResponse{
 		Success:  true,

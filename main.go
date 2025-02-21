@@ -133,7 +133,7 @@ func startMessageService(endpoint string, sc *svc.ServiceContext) {
 		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 		grpc.UnaryInterceptor(middleware.AuthMiddleware),
 	)
-	messageServer := message.NewCustomMessageServiceServer(sc.KafkaProducer, sc.MongoClient)
+	messageServer := message.NewCustomMessageServiceServer(sc.KafkaProducer, sc.MongoClient, sc.KafkaConsumer)
 	message.RegisterMessageServiceServer(s, messageServer)
 	log.Printf("正在启动消息服务 %s", endpoint)
 	if err := s.Serve(lis); err != nil {
@@ -152,7 +152,7 @@ func startFriendService(endpoint string, sc *svc.ServiceContext) {
 		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 		grpc.UnaryInterceptor(middleware.AuthMiddleware),
 	)
-	friendServer := friend.NewCustomFriendServiceServer(sc.KafkaProducer, sc.MongoClient, sc.RedisClient)
+	friendServer := friend.NewCustomFriendServiceServer(sc.KafkaProducer, sc.MongoClient, sc.RedisClient, sc.KafkaConsumer)
 	friend.RegisterFriendServiceServer(s, friendServer)
 	log.Printf("正在启动好友服务 %s", endpoint)
 	if err := s.Serve(lis); err != nil {

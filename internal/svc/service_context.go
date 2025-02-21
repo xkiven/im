@@ -18,14 +18,16 @@ type ServiceContext struct {
 	MongoClient   *mongodb.MongoClient
 	MySQLClient   *mysql.MySQLClient
 	RedisClient   *redis.RedisClient
+	KafkaConsumer *kafka.KafkaConsumer
 }
 
 // NewServiceContext 创建服务上下文实例
-func NewServiceContext(mysqlClient *mysql.MySQLClient, redisClient *redis.RedisClient, mongoClient *mongodb.MongoClient, kafkaProducer *kafka.KafkaProducer) *ServiceContext {
+func NewServiceContext(mysqlClient *mysql.MySQLClient, redisClient *redis.RedisClient, mongoClient *mongodb.MongoClient, kafkaProducer *kafka.KafkaProducer, kafkaConsumer *kafka.KafkaConsumer) *ServiceContext {
 	return &ServiceContext{
 		MySQLClient:   mysqlClient,
 		RedisClient:   redisClient,
 		MongoClient:   mongoClient,
 		KafkaProducer: kafkaProducer,
+		KafkaConsumer: kafkaConsumer,
 	}
 }

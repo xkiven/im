@@ -40,9 +40,10 @@ func main() {
 		log.Fatalf("初始化 MongoDB 失败: %v", err)
 	}
 	kafkaProducer := kafka.NewKafkaProducer(cfg.Kafka.Brokers, cfg.Kafka.Topic)
+	kafkaConsumer := kafka.NewKafkaConsumer(cfg.Kafka.Brokers, cfg.Kafka.Topic)
 
 	// 创建服务上下文
-	sc := svc.NewServiceContext(mysqlClient, redisClient, mongoClient, kafkaProducer)
+	sc := svc.NewServiceContext(mysqlClient, redisClient, mongoClient, kafkaProducer, kafkaConsumer)
 	// 启动用户服务 gRPC 服务器
 	if len(cfg.UserRpc.Endpoints) > 0 {
 		go startUserService(cfg.UserRpc.Endpoints[0], sc)

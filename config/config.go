@@ -42,13 +42,11 @@ func fallbackLoadConfig(filePath string, cfg *Config) error {
 // LoadConfig 加载配置文件
 func LoadConfig(filePath string, cfg *Config) error {
 	return general.WithHystrix("load_config", func() error {
-		// 原有的 LoadConfig 逻辑
-		//fmt.Printf("Trying to read config file from path: %s\n", filePath)
+		// LoadConfig 逻辑
 		data, err := os.ReadFile(filePath)
 		if err != nil {
 			return fmt.Errorf("读取配置文件失败: %w", err)
 		}
-		//fmt.Printf("Read config file content:\n%s\n", string(data))
 		err = yaml.Unmarshal(data, cfg)
 		if err != nil {
 			return fmt.Errorf("无法重新解组配置文件: %w", err)

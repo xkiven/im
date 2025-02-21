@@ -130,7 +130,7 @@ func startFriendService(endpoint string, sc *svc.ServiceContext) {
 	s := grpc.NewServer(
 		grpc.UnaryInterceptor(middleware.AuthMiddleware),
 	)
-	friendServer := friend.NewCustomFriendServiceServer(sc.KafkaProducer, sc.MongoClient)
+	friendServer := friend.NewCustomFriendServiceServer(sc.KafkaProducer, sc.MongoClient, sc.RedisClient)
 	friend.RegisterFriendServiceServer(s, friendServer)
 	log.Printf("正在启动好友服务 %s", endpoint)
 	if err := s.Serve(lis); err != nil {

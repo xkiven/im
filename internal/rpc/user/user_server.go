@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/golang-jwt/jwt/v4"
 	"gorm.io/gorm"
 	"im-service/internal/data/mysql"
@@ -28,6 +29,21 @@ func NewCustomUserServiceServer(mysqlClient *mysql.MySQLClient, redisClient *red
 
 // Register 处理用户注册请求
 func (s *CustomUserServiceServer) Register(ctx context.Context, req *UserRegisterRequest) (*UserRegisterResponse, error) {
+	// 生成请求 ID
+	requestID := fmt.Sprint(req.Username, "_Register")
+	// 检查并设置幂等性键
+	exists, err := s.redisClient.CheckAndSetIdempotency(requestID, 10*time.Minute)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		// 请求已经处理过，直接返回成功
+		return &UserRegisterResponse{
+			Success:  true,
+			ErrorMsg: "",
+		}, nil
+	}
+
 	var user mysql.User
 	//查看用户名是否存在
 	result := s.mysqlClient.DB.Where("username = ?", req.Username).First(&user)
@@ -53,7 +69,7 @@ func (s *CustomUserServiceServer) Register(ctx context.Context, req *UserRegiste
 	}
 
 	// 将用户信息写入 Redis
-	err := s.redisClient.Client.Set(ctx, req.Username, newUser.Password, 0).Err()
+	err = s.redisClient.Client.Set(ctx, req.Username, newUser.Password, 0).Err()
 	if err != nil {
 		// 记录日志
 		log.Printf("Redis 写入失败: %v", err)
@@ -73,6 +89,25 @@ func (s *CustomUserServiceServer) Register(ctx context.Context, req *UserRegiste
 
 // Login 处理用户登录请求
 func (s *CustomUserServiceServer) Login(ctx context.Context, req *UserLoginRequest) (*UserLoginResponse, error) {
+	// 生成请求 ID
+	requestID := fmt.Sprint(req.Username, "_Login")
+	// 检查并设置幂等性键
+	exists, err := s.redisClient.CheckAndSetIdempotency(requestID, 10*time.Minute)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		// 请求已经处理过，直接返回之前的结果
+		token, err := s.redisClient.Client.Get(ctx, requestID+"_token").Result()
+		if err != nil {
+			return nil, err
+		}
+		return &UserLoginResponse{
+			Token:    token,
+			ErrorMsg: "",
+		}, nil
+	}
+
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
@@ -92,6 +127,12 @@ func (s *CustomUserServiceServer) Login(ctx context.Context, req *UserLoginReque
 			"exp":      time.Now().Add(time.Hour * 24).Unix(),
 		})
 		tokenString, err := token.SignedString([]byte("your_secret_key"))
+		if err != nil {
+			return nil, err
+		}
+
+		// 将生成的 token 存储到 Redis 中，用于幂等性检查
+		err = s.redisClient.Client.Set(ctx, requestID+"_token", tokenString, 10*time.Minute).Err()
 		if err != nil {
 			return nil, err
 		}
@@ -130,6 +171,12 @@ func (s *CustomUserServiceServer) Login(ctx context.Context, req *UserLoginReque
 		"exp":      time.Now().Add(time.Hour * 24).Unix(),
 	})
 	tokenString, err := token.SignedString([]byte("your_secret_key"))
+	if err != nil {
+		return nil, err
+	}
+
+	// 将生成的 token 存储到 Redis 中，用于幂等性检查
+	err = s.redisClient.Client.Set(ctx, requestID+"_token", tokenString, 10*time.Minute).Err()
 	if err != nil {
 		return nil, err
 	}

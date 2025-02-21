@@ -7,6 +7,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"im-service/internal/data/kafka"
 	"im-service/internal/data/mongodb"
+	"im-service/internal/data/redis"
 	"log"
 	"time"
 )
@@ -15,6 +16,7 @@ import (
 type CustomFriendServiceServer struct {
 	kafkaProducer *kafka.KafkaProducer
 	mongoClient   *mongodb.MongoClient
+	redisClient   *redis.RedisClient
 }
 
 func (s *CustomFriendServiceServer) mustEmbedUnimplementedFriendServiceServer() {
@@ -23,15 +25,32 @@ func (s *CustomFriendServiceServer) mustEmbedUnimplementedFriendServiceServer() 
 }
 
 // NewCustomFriendServiceServer 创建好友服务端实例
-func NewCustomFriendServiceServer(kafkaProducer *kafka.KafkaProducer, mongoClient *mongodb.MongoClient) *CustomFriendServiceServer {
+func NewCustomFriendServiceServer(kafkaProducer *kafka.KafkaProducer, mongoClient *mongodb.MongoClient, redisClient *redis.RedisClient) *CustomFriendServiceServer {
 	return &CustomFriendServiceServer{
 		kafkaProducer: kafkaProducer,
 		mongoClient:   mongoClient,
+		redisClient:   redisClient,
 	}
 }
 
 // SendFriendRequest 处理发送好友请求
 func (s *CustomFriendServiceServer) SendFriendRequest(ctx context.Context, req *FriendRequest) (*FriendRequestResponse, error) {
+	// 生成请求 ID
+
+	requestID := fmt.Sprintf(req.From, "_addFriend")
+	// 检查并设置幂等性键
+	exists, err := s.redisClient.CheckAndSetIdempotency(requestID, 10*time.Minute)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		// 请求已经处理过，直接返回成功
+		return &FriendRequestResponse{
+			Success:  true,
+			ErrorMsg: "",
+		}, nil
+	}
+
 	//从上下文中获取用户名
 	username := ctx.Value("username")
 	log.Println(username)
@@ -95,6 +114,20 @@ func (s *CustomFriendServiceServer) SendFriendRequest(ctx context.Context, req *
 
 // AcceptFriendRequest 处理同意好友请求
 func (s *CustomFriendServiceServer) AcceptFriendRequest(ctx context.Context, req *FriendRequest) (*FriendRequestResponse, error) {
+	// 生成请求 ID
+	requestID := fmt.Sprintf(req.To, "_acceptFriend")
+	// 检查并设置幂等性键
+	exists, err := s.redisClient.CheckAndSetIdempotency(requestID, 10*time.Minute)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		// 请求已经处理过，直接返回成功
+		return &FriendRequestResponse{
+			Success:  true,
+			ErrorMsg: "",
+		}, nil
+	}
 	//从上下文中获取用户名
 	username := ctx.Value("username")
 	//验证用户
@@ -103,6 +136,22 @@ func (s *CustomFriendServiceServer) AcceptFriendRequest(ctx context.Context, req
 			Success:  false,
 			ErrorMsg: "你不是用户本人",
 		}, nil
+	}
+	// 检查发送者和接收者是否为好友
+	isFriend, err := IsFriends(ctx, s.mongoClient, req.From, req.To)
+
+	if err != nil {
+		log.Printf("检查好友关系时出错: %v", err)
+		return &FriendRequestResponse{
+			Success:  false,
+			ErrorMsg: err.Error(),
+		}, err
+	}
+	if isFriend {
+		return &FriendRequestResponse{
+			Success:  false,
+			ErrorMsg: "发送者和接收者已经是好友，无法处理好友申请",
+		}, err
 	}
 	// 更新好友请求状态为已接受
 	friendRequestsCollection := s.mongoClient.DB.Collection("friend_requests")
@@ -141,7 +190,7 @@ func (s *CustomFriendServiceServer) AcceptFriendRequest(ctx context.Context, req
 	}
 
 	// 发送好友关系建立通知到 Kafka
-	err := s.kafkaProducer.SendFriendAcceptedNotification(req.From, req.To)
+	err = s.kafkaProducer.SendFriendAcceptedNotification(req.From, req.To)
 	if err != nil {
 		return &FriendRequestResponse{
 			Success:  false,

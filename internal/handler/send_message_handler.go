@@ -19,7 +19,7 @@ func HandleSendMessage(ctx context.Context, client message.MessageServiceClient,
 		log.Printf("发送消息失败: %v", err)
 		errMsg := fmt.Sprintf("发送消息失败: %v", err)
 		if err := conn.WriteMessage(websocket.TextMessage, []byte(errMsg)); err != nil {
-			log.Printf("向客户端发送错误消息失败: %v", err)
+			log.Printf("向客户端发送消息失败: %v", err)
 		}
 		return nil, err
 	}

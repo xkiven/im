@@ -73,10 +73,13 @@ func main() {
 
 	lm.Start(endpoints, interval)
 
+	// 创建 RateLimiter
+	rateLimiter := middleware.NewRateLimiter(sc.RedisClient, 10, 100)
+
 	// 启动 WebSocket 服务
-	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/ws", middleware.RateLimitMiddleware(rateLimiter, func(w http.ResponseWriter, r *http.Request) {
 		start.WsHandler(cfg, lm, w, r)
-	})
+	}))
 	log.Printf("启动WebSocket服务器，在端口 %d 上", cfg.Port)
 	if err := http.ListenAndServe(":"+strconv.Itoa(cfg.Port), nil); err != nil {
 		log.Fatalf("启动WebSocket服务器失败: %v", err)

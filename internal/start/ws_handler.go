@@ -4,8 +4,8 @@ import (
 	"context"
 	"github.com/gorilla/websocket"
 	"im-service/config"
+	general2 "im-service/internal/general"
 	"im-service/internal/handler"
-	"im-service/internal/handler/general"
 	"im-service/internal/loadmonitor"
 	"im-service/internal/rpc/friend"
 	"im-service/internal/rpc/message"
@@ -29,7 +29,7 @@ func WsHandler(cfg config.Config, lm *loadmonitor.LoadMonitor, w http.ResponseWr
 	ctx := context.Background()
 
 	// 建立与用户服务的 gRPC 连接
-	userConn, err := general.CreateGRPCConnection(cfg.UserRpc.Endpoints, lm)
+	userConn, err := general2.CreateGRPCConnection(cfg.UserRpc.Endpoints, lm)
 	if err != nil {
 		log.Fatalf("无法连接到用户服务: %v", err)
 	}
@@ -37,7 +37,7 @@ func WsHandler(cfg config.Config, lm *loadmonitor.LoadMonitor, w http.ResponseWr
 	userClient := user.NewUserServiceClient(userConn)
 
 	// 建立与消息服务的 gRPC 连接
-	messageConn, err := general.CreateGRPCConnection(cfg.MessageRpc.Endpoints, lm)
+	messageConn, err := general2.CreateGRPCConnection(cfg.MessageRpc.Endpoints, lm)
 	if err != nil {
 		log.Fatalf("无法连接到消息服务: %v", err)
 	}
@@ -45,7 +45,7 @@ func WsHandler(cfg config.Config, lm *loadmonitor.LoadMonitor, w http.ResponseWr
 	messageClient := message.NewMessageServiceClient(messageConn)
 
 	//建立与好友服务的 gRPC 连接
-	friendConn, err := general.CreateGRPCConnection(cfg.FriendRpc.Endpoints, lm)
+	friendConn, err := general2.CreateGRPCConnection(cfg.FriendRpc.Endpoints, lm)
 	if err != nil {
 		log.Printf("无法连接到好友服务: %v", err)
 	}
@@ -60,10 +60,10 @@ func WsHandler(cfg config.Config, lm *loadmonitor.LoadMonitor, w http.ResponseWr
 	}
 
 	//连接成功建立后，启动心跳机制
-	go general.SendHeartBeat(conn)
+	go general2.SendHeartBeat(conn)
 
 	//监听心跳机制
-	go general.ListenForMessages(conn)
+	go general2.ListenForMessages(conn)
 
 	// 启动读取客户端消息的循环
 	handler.ReadClientMessages(ctx, conn, userClient, messageClient, friendClient)

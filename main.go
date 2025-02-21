@@ -43,7 +43,6 @@ func main() {
 
 	// 创建服务上下文
 	sc := svc.NewServiceContext(mysqlClient, redisClient, mongoClient, kafkaProducer)
-
 	// 启动用户服务 gRPC 服务器
 	if len(cfg.UserRpc.Endpoints) > 0 {
 		go startUserService(cfg.UserRpc.Endpoints[0], sc)
@@ -109,9 +108,9 @@ func startMessageService(endpoint string, sc *svc.ServiceContext) {
 	if err != nil {
 		log.Fatalf("收听失败: %v", err)
 	}
-	// 创建 gRPC 服务器并注册拦截器
+	//创建 gRPC 服务器并注册拦截器
 	s := grpc.NewServer(
-		grpc.UnaryInterceptor(middleware.AuthUnaryServerInterceptor),
+		grpc.UnaryInterceptor(middleware.AuthMiddleware),
 	)
 	messageServer := message.NewCustomMessageServiceServer(sc.KafkaProducer, sc.MongoClient)
 	message.RegisterMessageServiceServer(s, messageServer)
@@ -129,7 +128,7 @@ func startFriendService(endpoint string, sc *svc.ServiceContext) {
 	}
 	// 创建 gRPC 服务器并注册拦截器
 	s := grpc.NewServer(
-		grpc.UnaryInterceptor(middleware.AuthUnaryServerInterceptor),
+		grpc.UnaryInterceptor(middleware.AuthMiddleware),
 	)
 	friendServer := friend.NewCustomFriendServiceServer(sc.KafkaProducer, sc.MongoClient)
 	friend.RegisterFriendServiceServer(s, friendServer)

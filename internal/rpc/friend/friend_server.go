@@ -7,7 +7,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"im-service/internal/data/kafka"
 	"im-service/internal/data/mongodb"
-	"im-service/internal/svc"
 	"log"
 	"time"
 )
@@ -33,21 +32,16 @@ func NewCustomFriendServiceServer(kafkaProducer *kafka.KafkaProducer, mongoClien
 
 // SendFriendRequest 处理发送好友请求
 func (s *CustomFriendServiceServer) SendFriendRequest(ctx context.Context, req *FriendRequest) (*FriendRequestResponse, error) {
-	// 获取 ServiceContext
-	serviceContext, ok := ctx.Value("serviceContext").(*svc.ServiceContext)
-	if !ok {
-		return nil, errors.New("无法获取 ServiceContext")
-	}
-
-	// 从 ServiceContext 中获取用户名
-	username := serviceContext.GetUsername()
+	//从上下文中获取用户名
+	username := ctx.Value("username")
+	log.Println(username)
+	//验证用户
 	if username != req.From {
 		return &FriendRequestResponse{
 			Success:  false,
-			ErrorMsg: "你不是此用户",
-		}, errors.New("发送者不是此用户")
+			ErrorMsg: "你不是用户本人",
+		}, errors.New("验证用户出错")
 	}
-
 	// 检查发送者和接收者是否为好友
 	isFriend, err := IsFriends(ctx, s.mongoClient, req.From, req.To)
 
@@ -101,21 +95,15 @@ func (s *CustomFriendServiceServer) SendFriendRequest(ctx context.Context, req *
 
 // AcceptFriendRequest 处理同意好友请求
 func (s *CustomFriendServiceServer) AcceptFriendRequest(ctx context.Context, req *FriendRequest) (*FriendRequestResponse, error) {
-	// 获取 ServiceContext
-	serviceContext, ok := ctx.Value("serviceContext").(*svc.ServiceContext)
-	if !ok {
-		return nil, errors.New("无法获取 ServiceContext")
-	}
-
-	// 从 ServiceContext 中获取用户名
-	username := serviceContext.GetUsername()
+	//从上下文中获取用户名
+	username := ctx.Value("username")
+	//验证用户
 	if username != req.To {
 		return &FriendRequestResponse{
 			Success:  false,
-			ErrorMsg: "你不是此用户",
-		}, errors.New("同意者不是此用户")
+			ErrorMsg: "你不是用户本人",
+		}, nil
 	}
-
 	// 更新好友请求状态为已接受
 	friendRequestsCollection := s.mongoClient.DB.Collection("friend_requests")
 	filter := bson.M{
@@ -201,19 +189,14 @@ func IsFriends(ctx context.Context, mongoClient *mongodb.MongoClient, user1, use
 
 // GetFriendList 处理获取好友列表请求
 func (s *CustomFriendServiceServer) GetFriendList(ctx context.Context, req *GetFriendListRequest) (*GetFriendListResponse, error) {
-	// 获取 ServiceContext
-	serviceContext, ok := ctx.Value("serviceContext").(*svc.ServiceContext)
-	if !ok {
-		return nil, errors.New("无法获取 ServiceContext")
-	}
-
-	// 从 ServiceContext 中获取用户名
-	username := serviceContext.GetUsername()
+	//从上下文中获取用户名
+	username := ctx.Value("username")
+	//验证用户
 	if username != req.Username {
 		return &GetFriendListResponse{
 			Success:  false,
-			ErrorMsg: "你不是此用户",
-		}, errors.New("申请获取列表者不是此用户")
+			ErrorMsg: "你不是用户本人",
+		}, errors.New("验证用户出错")
 	}
 
 	log.Printf("准备获取好友列表")

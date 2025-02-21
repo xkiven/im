@@ -8,6 +8,9 @@ import (
 	"im-service/internal/data/redis"
 )
 
+// ContextKey 用于存储 ServiceContext 的键
+type ContextKey struct{}
+
 // ServiceContext 定义服务上下文结构体
 type ServiceContext struct {
 	Config        config.Config
@@ -15,8 +18,6 @@ type ServiceContext struct {
 	MongoClient   *mongodb.MongoClient
 	MySQLClient   *mysql.MySQLClient
 	RedisClient   *redis.RedisClient
-	// 新增字段，用于存储用户名
-	Username string
 }
 
 // NewServiceContext 创建服务上下文实例
@@ -27,14 +28,4 @@ func NewServiceContext(mysqlClient *mysql.MySQLClient, redisClient *redis.RedisC
 		MongoClient:   mongoClient,
 		KafkaProducer: kafkaProducer,
 	}
-}
-
-// SetUsername 设置上下文中的用户名
-func (sc *ServiceContext) SetUsername(username string) {
-	sc.Username = username
-}
-
-// GetUsername 获取上下文中的用户名
-func (sc *ServiceContext) GetUsername() string {
-	return sc.Username
 }

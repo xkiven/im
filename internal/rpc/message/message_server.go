@@ -2,7 +2,6 @@ package message
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -10,7 +9,6 @@ import (
 	"im-service/internal/data/kafka"
 	"im-service/internal/data/mongodb"
 	"im-service/internal/rpc/friend"
-	"im-service/internal/svc"
 	"log"
 	"time"
 )
@@ -32,19 +30,14 @@ func NewCustomMessageServiceServer(kafkaProducer *kafka.KafkaProducer, mongoClie
 
 // SendMessage 处理发送消息请求
 func (s *CustomMessageServiceServer) SendMessage(ctx context.Context, req *SendMessageRequest) (*SendMessageResponse, error) {
-	// 获取 ServiceContext
-	serviceContext, ok := ctx.Value("serviceContext").(*svc.ServiceContext)
-	if !ok {
-		return nil, errors.New("无法获取 ServiceContext")
-	}
-
-	// 从 ServiceContext 中获取用户名
-	username := serviceContext.GetUsername()
+	//从上下文中获取用户名
+	username := ctx.Value("username")
+	//验证用户
 	if username != req.From {
 		return &SendMessageResponse{
 			Success:  false,
-			ErrorMsg: "你不是此用户",
-		}, errors.New("发送者不是此用户")
+			ErrorMsg: "你不是发送者本人",
+		}, nil
 	}
 
 	// 检查发送者和接收者是否为好友
@@ -100,17 +93,14 @@ func (s *CustomMessageServiceServer) SendMessage(ctx context.Context, req *SendM
 
 // GetMessageHistory 处理获取消息历史请求
 func (s *CustomMessageServiceServer) GetMessageHistory(ctx context.Context, req *GetMessageHistoryRequest) (*GetMessageHistoryResponse, error) {
-
-	// 获取 ServiceContext
-	serviceContext, ok := ctx.Value("serviceContext").(*svc.ServiceContext)
-	if !ok {
-		return nil, errors.New("无法获取 ServiceContext")
-	}
-
-	// 从 ServiceContext 中获取用户名
-	username := serviceContext.GetUsername()
-	if username != req.From {
-		return nil, errors.New("请求获取历史消息者不是此用户")
+	//从上下文中获取用户名
+	username := ctx.Value("username")
+	//验证用户
+	if username != req.To {
+		return &GetMessageHistoryResponse{
+			Messages: nil,
+			ErrorMsg: "你不是用户本人",
+		}, nil
 	}
 
 	messagesCollection := s.mongoClient.DB.Collection("messages")

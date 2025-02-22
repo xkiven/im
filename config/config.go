@@ -2,10 +2,10 @@ package config
 
 import (
 	"fmt"
+	"github.com/afex/hystrix-go/hystrix"
 	"github.com/zeromicro/go-zero/zrpc"
 	"gopkg.in/yaml.v3"
-	"im-service/internal/general"
-
+	"log"
 	"os"
 )
 
@@ -39,9 +39,21 @@ func fallbackLoadConfig(filePath string, cfg *Config) error {
 	return fmt.Errorf("配置加载失败，启用熔断降级")
 }
 
+func init() {
+	// 配置熔断命令
+	hystrix.ConfigureCommand("load_config", hystrix.CommandConfig{
+		Timeout:               1000, // 超时时间，单位毫秒
+		MaxConcurrentRequests: 100,  // 最大并发请求数
+		ErrorPercentThreshold: 25,   // 错误率阈值，超过该阈值会触发熔断
+		SleepWindow:           5000, // 熔断后的休眠窗口时间，单位毫秒
+	})
+}
+
 // LoadConfig 加载配置文件
 func LoadConfig(filePath string, cfg *Config) error {
-	return general.WithHystrix("load_config", func() error {
+
+	err := hystrix.Do("load_config", func() error {
+		log.Printf("启用熔断保护")
 		// LoadConfig 逻辑
 		data, err := os.ReadFile(filePath)
 		if err != nil {
@@ -107,4 +119,10 @@ func LoadConfig(filePath string, cfg *Config) error {
 	}, func(err error) error {
 		return fallbackLoadConfig(filePath, cfg)
 	})
+
+	if err != nil {
+		fmt.Println("配置加载失败:", err)
+	}
+
+	return nil
 }

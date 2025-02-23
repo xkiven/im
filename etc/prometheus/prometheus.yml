@@ -1,0 +1,56 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  # 监控 IM 服务主端口
+  - job_name: 'im-service-main'
+    static_configs:
+      - targets: ['127.0.0.1:8080']
+        labels:
+          Authorization: 'Bearer '
+    metrics_path: "/metrics"
+
+  # 监控 UserRpc 服务端口
+  - job_name: 'user-rpc-service'
+    static_configs:
+      - targets:
+          - '127.0.0.1:9000'
+          - '127.0.0.1:9010'
+          - '127.0.0.1:9020'
+
+  # 监控 MessageRpc 服务端口
+  - job_name: 'message-rpc-service'
+    static_configs:
+      - targets:
+          - '127.0.0.1:9001'
+          - '127.0.0.1:9011'
+          - '127.0.0.1:9021'
+
+  # 监控 FriendRpc 服务端口
+  - job_name: 'friend-rpc-service'
+    static_configs:
+      - targets:
+          - '127.0.0.1:9002'
+          - '127.0.0.1:9012'
+          - '127.0.0.1:9022'
+
+  # 监控 Kafka 服务端口
+  - job_name: 'kafka-service'
+    static_configs:
+      - targets: ['127.0.0.1:9092']
+
+  # 监控 MongoDB 服务端口
+  - job_name: 'mongodb-service'
+    static_configs:
+      - targets: ['127.0.0.1:27017']
+
+  # 监控 MySQL 服务端口
+  - job_name: 'mysql-service'
+    static_configs:
+      - targets: ['127.0.0.1:3306']
+
+  # 监控 Redis 服务端口
+  - job_name: 'redis-service'
+    static_configs:
+      - targets: ['127.0.0.1:6379']
+

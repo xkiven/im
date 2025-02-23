@@ -16,6 +16,7 @@ import (
 	"im-service/internal/rpc/user"
 	"im-service/internal/start"
 	"im-service/internal/svc"
+	"im-service/metrics"
 	"im-service/track"
 	"log"
 	"net"
@@ -90,6 +91,15 @@ func main() {
 
 	// 创建 RateLimiter
 	rateLimiter := middleware.NewRateLimiter(sc.RedisClient, 10, 100)
+
+	// 初始化 MetricsHandler
+	metricsHandler := metrics.NewMetricsHandler()
+
+	// 注册根路径的处理函数
+	http.HandleFunc("/", metricsHandler.RootHandler)
+
+	// 注册 Prometheus 指标端点
+	metricsHandler.RegisterMetricsHandler()
 
 	// 启动 WebSocket 服务
 	http.HandleFunc("/ws", middleware.RateLimitMiddleware(rateLimiter, func(w http.ResponseWriter, r *http.Request) {

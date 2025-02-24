@@ -8,6 +8,7 @@ import (
 	"gorm.io/gorm"
 	"im-service/internal/data/mysql"
 	"im-service/internal/data/redis"
+	"im-service/internal/general"
 	"log"
 	"time"
 )
@@ -56,6 +57,8 @@ func (s *CustomUserServiceServer) Register(ctx context.Context, req *UserRegiste
 	if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		return nil, result.Error
 	}
+	//哈希加密
+	req.Password = general.HashEncryption(req.Password)
 
 	newUser := mysql.User{
 		Username: req.Username,
@@ -89,6 +92,8 @@ func (s *CustomUserServiceServer) Register(ctx context.Context, req *UserRegiste
 
 // Login 处理用户登录请求
 func (s *CustomUserServiceServer) Login(ctx context.Context, req *UserLoginRequest) (*UserLoginResponse, error) {
+	//哈希加密
+	req.Password = general.HashEncryption(req.Password)
 	// 生成请求 ID
 	requestID := fmt.Sprint(req.Username, "_Login")
 	// 检查并设置幂等性键

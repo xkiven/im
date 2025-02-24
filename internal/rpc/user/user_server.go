@@ -102,9 +102,13 @@ func (s *CustomUserServiceServer) Login(ctx context.Context, req *UserLoginReque
 		return nil, err
 	}
 	if !exists {
+		log.Printf("请求已经处理过")
 		// 请求已经处理过，直接返回之前的结果
 		token, err := s.redisClient.Client.Get(ctx, requestID+"_token").Result()
 		if err != nil {
+			if err.Error() == "redis: nil" {
+				goto DONE
+			}
 			return nil, err
 		}
 		return &UserLoginResponse{
@@ -112,7 +116,7 @@ func (s *CustomUserServiceServer) Login(ctx context.Context, req *UserLoginReque
 			ErrorMsg: "",
 		}, nil
 	}
-
+DONE:
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}

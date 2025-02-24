@@ -19,6 +19,7 @@ func HandleUserLogin(ctx context.Context, client user.UserServiceClient, req *us
 
 	resp, err := client.Login(ctx, req)
 	if err != nil {
+		log.Printf("登录失败")
 		return nil, err
 	}
 	// 登录成功后调用 RegisterConnection 函数
